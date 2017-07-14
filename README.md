@@ -14,7 +14,9 @@ $ pip install -r requirements.txt
 ```
 
 ## How to use
+
 **配置**
+
 编辑`sync.conf`文件作同步任务的相关配置
 - `hosts`是elasticsearch的链接参数，完全按照`elasticsearch-py`的`Elasticsearch`类的语法，[官方文档](https://elasticsearch-py.readthedocs.io/en/master/api.html#elasticsearch)
 - ​`_index`指定要同步数据的elasticsearch索引(index)名称
