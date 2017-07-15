@@ -76,7 +76,7 @@ elasticsearch 9200的端口可能上限就是5000/qps了
 >
 > It is often useful to keep an eye on the physical size of your bulk requests. One thousand 1KB documents is very different from one thousand 1MB documents. A good bulk size to start playing with is around 5-15MB in size.
 ## Notice
-需要同步的文本数据一个要是相同格式的，比如下面这中全部以`tab`作为字段分隔符的
+需要同步的文本数据一定要是相同格式的，比如下面这样全部以`tab`作为字段分隔符的
 ```json
 207628234	387477787	neso0013@net.hr	387477787
 207628235	387477790	sasha_sniker@yahoo.com	387477790
@@ -91,7 +91,10 @@ elasticsearch 9200的端口可能上限就是5000/qps了
 ```
 暂时不支持原生csv文本，可以手动去掉csv文本的头，然后指定逗号为分隔符来进行数据同步
 
-
+## How work
+工作原理图
+![workfolw](https://github.com/Zhiwei1996/chunk2es-py/raw/master/test/chunk2es-py.png)
+就这么简单 :)
 
 --------------
 有bug请联系我，noparking188@gmail.com
