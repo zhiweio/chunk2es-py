@@ -36,7 +36,7 @@ def _cli_parse(args):
         description=textwrap.dedent(DOC))
     opt = parser.add_argument
     opt('-f', '--input-file', dest='file',
-        help='read ip addresses from a txt file')
+        help='input file, export data to elastics')
     opt('-c', '--config', help='specify config file about elastics')
     cli_args = parser.parse_args(args[1:])
     return cli_args, parser
