@@ -183,6 +183,7 @@ def gen_data(chunk, conf):
         headline = headline if headline else f.readline().strip().split(delimiter)
         for line in f:
             fields = line.strip().split(delimiter)
+            # fields = [i.strip("\"").strip("\'") for i in fields]
             # NOTE: only string fileds
             source = dict(zip(headline, fields))
             es_id = source[conf['_id']]
