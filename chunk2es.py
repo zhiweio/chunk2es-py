@@ -8,6 +8,7 @@ import elasticsearch
 import subprocess
 import logging
 import shutil
+import codecs
 import json
 import time
 import glob
@@ -102,7 +103,7 @@ class TaskList(object):
         except (IOError, ValueError):
             # tasks.info does not exist
             # no tasks found
-            return {"complete": set()}
+            return {"complete": []}
 
     def mark_complete(self, input_file):
         '''complement mark:
@@ -133,7 +134,7 @@ def read_config(config_file):
     index = conf['_index']
     doc_type = conf['_type']
     es_id = conf['_id']
-    if es_id in headline and hosts and delimiter and index and doc_type:
+    if hosts and delimiter and index and doc_type:
         return {
             'hosts': hosts,
             '_index': index,
@@ -175,7 +176,7 @@ def clean_chunk(chunk):
 
 
 def gen_data(chunk, conf):
-    with open(chunk) as f:
+    with codecs.open(chunk, 'r', encoding='utf8', errors='ignore') as f:
         delimiter = conf['delimiter']
         headline = conf['headline']
         ingore = conf['ingore']
@@ -183,19 +184,28 @@ def gen_data(chunk, conf):
         headline = headline if headline else f.readline().strip().split(delimiter)
         for line in f:
             fields = line.strip().split(delimiter)
+            # strip quotation
             # fields = [i.strip("\"").strip("\'") for i in fields]
             # NOTE: only string fileds
             source = dict(zip(headline, fields))
-            es_id = source[conf['_id']]
             if ingore:  # delete ingored field value
                 for i in ingore:
                     del source[i]
-            yield {
-                "_index": conf['_index'],
-                "_type": conf['_type'],
-                "_id": es_id,
-                "_source": source
-            }
+            try:
+                es_id = source[conf['_id']]
+                yield {
+                    "_index": conf['_index'],
+                    "_type": conf['_type'],
+                    "_id": es_id,
+                    "_source": source
+                }
+            except KeyError:
+                # not specify _id
+                yield {
+                    "_index": conf['_index'],
+                    "_type": conf['_type'],
+                    "_source": source
+                }
 
 
 def sync(es, chunk, conf, stats_only=True, raise_on_exception=False, **kwargs):
