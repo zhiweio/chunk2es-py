@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from elasticsearch import Elasticsearch
-from elasticsearch.helpers import streaming_bulk
+from elasticsearch.helpers import bulk
 from datetime import datetime
 import elasticsearch
 import subprocess
@@ -126,7 +126,10 @@ class TaskList(object):
 
 def read_config(config_file):
     with open(config_file, 'rb') as fp:
+        # try:
         conf = json.load(fp)
+        # except ValueError:
+        #     raise ValueError('invalid config')
     hosts = conf['hosts']
     delimiter = conf['delimiter']
     headline = conf['headline']
@@ -145,7 +148,7 @@ def read_config(config_file):
             'ingore': ingore
         }
     else:
-        raise ValueError('error config')
+        raise ValueError('invaild config')
 
 
 @quit
@@ -208,14 +211,11 @@ def gen_data(chunk, conf):
                 }
 
 
-def sync(es, chunk, conf, stats_only=True, raise_on_exception=False, **kwargs):
+def sync(es, chunk, conf):
     try:
-        response = streaming_bulk(es, gen_data(chunk, conf, **kwargs))
-        status = (ok for ok in response)
-        # emulate standard behavior for failed actions
-        # if no failure, return 0
-        # otherwise, return num of failures
-        return len(filter(lambda x: True if not x else None, status))
+        success, failed = bulk(es, gen_data(chunk, conf),
+                               stats_only=True)
+        return (success, failed)
     except elasticsearch.exceptions.ConnectionError:
         logging.error('connection error -> sync to ES failed')
         sys.exit(6)
@@ -225,11 +225,10 @@ def sync(es, chunk, conf, stats_only=True, raise_on_exception=False, **kwargs):
 def running(es, chunks, conf):
     while chunks:
         chunk = chunks.pop()
-        failed = sync(es, chunk, conf)
+        success, failed = sync(es, chunk, conf)
         if failed:
-            logging.error('failed - num: {}'.format(failed))
-        else:
-            clean_chunk(chunk)
+            logging.error('number of failed: {}'.format(failed))
+        clean_chunk(chunk)
 
 
 if __name__ == '__main__':
