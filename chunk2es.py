@@ -6,6 +6,7 @@ from elasticsearch.helpers import bulk
 from datetime import datetime
 import elasticsearch
 import subprocess
+import itertools
 import logging
 import shutil
 import codecs
@@ -196,12 +197,17 @@ def gen_data(chunk, conf):
                     del source[i]
             try:
                 es_id = source[conf['_id']]
-                yield {
-                    "_index": conf['_index'],
-                    "_type": conf['_type'],
-                    "_id": es_id,
-                    "_source": source
-                }
+                if not es_id:
+                    logging.error(
+                        '>>> fucked, empty _id   >>> {}'.format(source))
+                    yield None
+                else:
+                    yield {
+                        "_index": conf['_index'],
+                        "_type": conf['_type'],
+                        "_id": es_id,
+                        "_source": source
+                    }
             except KeyError:
                 # not specify _id
                 yield {
@@ -213,8 +219,11 @@ def gen_data(chunk, conf):
 
 def sync(es, chunk, conf):
     try:
-        success, failed = bulk(es, gen_data(chunk, conf),
-                               stats_only=True)
+        actions = gen_data(chunk, conf)
+        print id(actions)
+        actions = itertools.ifilter(None, actions)
+        print id(actions)
+        success, failed = bulk(es, actions, stats_only=True)
         return (success, failed)
     except elasticsearch.exceptions.ConnectionError:
         logging.error('connection error -> sync to ES failed')
