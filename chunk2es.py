@@ -111,17 +111,17 @@ def gen_data(chunk, config):
             if ingore:  # delete ingored field value
                 for i in ingore:
                     del source[i]
-            if len(source) != len(headline):
+            if len(source) != len(headline) or len(fields) != len(headline):
                 # NOTE: would raise mapper_parsing_exception error
                 logging.error(
-                    '>>> fucked, missing some fields  >>> {}'.format(source))
+                    '>>> fucked, missed or exceeded some fields  >>> {}'.format(fields))
                 yield None
             try:
                 es_id = source[config['_id']]
                 # logging.error('test _id >>> {}'.format(es_id))
                 if not es_id:
                     logging.error(
-                        '>>> fucked, empty _id   >>> {}'.format(source))
+                        '>>> fucked, empty _id   >>> {}'.format(fields))
                     yield None
                 else:
                     yield {
