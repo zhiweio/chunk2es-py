@@ -58,6 +58,108 @@ def quit(func):
     return wrapper
 
 
+def read_config(config_file):
+    with open(config_file, 'rb') as fp:
+        config = json.load(fp)
+    # verify required keys of config
+    required_keys = set(['_type', '_index', 'headline', 'delimiter', 'hosts'])
+    total_keys = set(config.keys())
+    if required_keys.issubset(total_keys):
+        return config
+    else:
+        raise ValueError('invaild config')
+
+
+@quit
+def gen_chunks(huge_file, lines=50000):
+    split_command = ['split', '-l',
+                     str(lines), '-a', '5', huge_file, 'chunk_']
+    try:
+        subprocess.check_call(split_command)
+    except subprocess.CalledProcessError as e:
+        logging.error('!-> split file error: {}'.format(e))
+        sys.exit(1)
+
+    chunked_files = glob.glob('chunk_*')
+    # move chunks to cache
+    if not os.path.isdir(CACHE_PATH):
+        os.mkdir(CACHE_PATH)
+    for src in chunked_files:
+        shutil.move(src, CACHE_PATH)
+    return glob.glob(CACHE_PATH + '/chunk_*')
+
+
+def clean_chunk(chunk):
+    '''delete chunk completed from cache dir'''
+    try:
+        os.remove(chunk)
+    except OSError:
+        pass
+
+
+def gen_data(chunk, config):
+    with codecs.open(chunk, 'r', encoding='utf8', errors='ignore') as f:
+        delimiter = config['delimiter']
+        headline = config['headline']
+        ingore = config['ingore']
+        for line in f:
+            fields = line.strip().split(delimiter)
+            # strip quotation
+            # fields = [i.strip("\"").strip("\'") for i in fields]
+            # NOTE: only string fileds
+            source = dict(zip(headline, fields))
+            if ingore:  # delete ingored field value
+                for i in ingore:
+                    del source[i]
+            if len(source) != len(headline):
+                # NOTE: would raise mapper_parsing_exception error
+                logging.error(
+                    '>>> fucked, missing some fields  >>> {}'.format(source))
+                yield None
+            try:
+                es_id = source[config['_id']]
+                # logging.error('test _id >>> {}'.format(es_id))
+                if not es_id:
+                    logging.error(
+                        '>>> fucked, empty _id   >>> {}'.format(source))
+                    yield None
+                else:
+                    yield {
+                        "_index": config['_index'],
+                        "_type": config['_type'],
+                        "_id": es_id,
+                        "_source": source
+                    }
+            except KeyError:
+                # not specify _id
+                yield {
+                    "_index": config['_index'],
+                    "_type": config['_type'],
+                    "_source": source
+                }
+
+
+def sync(es, chunk, config):
+    try:
+        actions = gen_data(chunk, config)
+        actions = itertools.ifilter(None, actions)
+        success, failed = bulk(es, actions, stats_only=True)
+        return (success, failed)
+    except elasticsearch.exceptions.ConnectionError:
+        logging.error('connection error -> sync to ES failed')
+        sys.exit(6)
+
+
+@quit
+def running(es, chunks, config):
+    while chunks:
+        chunk = chunks.pop()
+        success, failed = sync(es, chunk, config)
+        if failed:
+            logging.error('number of failed: {}'.format(failed))
+        clean_chunk(chunk)
+
+
 class Cache(object):
     """Cache"""
 
@@ -125,121 +227,6 @@ class TaskList(object):
                 return e
 
 
-def read_config(config_file):
-    with open(config_file, 'rb') as fp:
-        # try:
-        conf = json.load(fp)
-        # except ValueError:
-        #     raise ValueError('invalid config')
-    hosts = conf['hosts']
-    delimiter = conf['delimiter']
-    headline = conf['headline']
-    ingore = conf['ingore']
-    index = conf['_index']
-    doc_type = conf['_type']
-    es_id = conf['_id']
-    if hosts and delimiter and index and doc_type:
-        return {
-            'hosts': hosts,
-            '_index': index,
-            '_type': doc_type,
-            '_id': es_id,
-            'delimiter': delimiter,
-            'headline': headline,
-            'ingore': ingore
-        }
-    else:
-        raise ValueError('invaild config')
-
-
-@quit
-def gen_chunks(huge_file, lines=50000):
-    split_command = ['split', '-l',
-                     str(lines), '-a', '5', huge_file, 'chunk_']
-    try:
-        subprocess.check_call(split_command)
-    except subprocess.CalledProcessError as e:
-        logging.error('!-> split file error: {}'.format(e))
-        sys.exit(1)
-
-    chunked_files = glob.glob('chunk_*')
-    # move chunks to cache
-    if not os.path.isdir(CACHE_PATH):
-        os.mkdir(CACHE_PATH)
-    for src in chunked_files:
-        shutil.move(src, CACHE_PATH)
-    return glob.glob(CACHE_PATH + '/chunk_*')
-
-
-def clean_chunk(chunk):
-    '''delete chunk completed from cache dir'''
-    try:
-        os.remove(chunk)
-    except OSError:
-        pass
-
-
-def gen_data(chunk, conf):
-    with codecs.open(chunk, 'r', encoding='utf8', errors='ignore') as f:
-        delimiter = conf['delimiter']
-        headline = conf['headline']
-        ingore = conf['ingore']
-        # default headline is the first line of file if not specify
-        headline = headline if headline else f.readline().strip().split(delimiter)
-        for line in f:
-            fields = line.strip().split(delimiter)
-            # strip quotation
-            # fields = [i.strip("\"").strip("\'") for i in fields]
-            # NOTE: only string fileds
-            source = dict(zip(headline, fields))
-            if ingore:  # delete ingored field value
-                for i in ingore:
-                    del source[i]
-            try:
-                es_id = source[conf['_id']]
-                if not es_id:
-                    logging.error(
-                        '>>> fucked, empty _id   >>> {}'.format(source))
-                    yield None
-                else:
-                    yield {
-                        "_index": conf['_index'],
-                        "_type": conf['_type'],
-                        "_id": es_id,
-                        "_source": source
-                    }
-            except KeyError:
-                # not specify _id
-                yield {
-                    "_index": conf['_index'],
-                    "_type": conf['_type'],
-                    "_source": source
-                }
-
-
-def sync(es, chunk, conf):
-    try:
-        actions = gen_data(chunk, conf)
-        print id(actions)
-        actions = itertools.ifilter(None, actions)
-        print id(actions)
-        success, failed = bulk(es, actions, stats_only=True)
-        return (success, failed)
-    except elasticsearch.exceptions.ConnectionError:
-        logging.error('connection error -> sync to ES failed')
-        sys.exit(6)
-
-
-@quit
-def running(es, chunks, conf):
-    while chunks:
-        chunk = chunks.pop()
-        success, failed = sync(es, chunk, conf)
-        if failed:
-            logging.error('number of failed: {}'.format(failed))
-        clean_chunk(chunk)
-
-
 if __name__ == '__main__':
     opts, parser = _cli_parse(sys.argv)
 
@@ -256,14 +243,14 @@ if __name__ == '__main__':
         sys.exit(2)
     try:
         with open(opts.config) as fp:
-            conf = json.load(fp)
+            config = json.load(fp)
     except IOError:
         print '!-> cannot read specific config file'
         parser.print_usage()
         sys.exit(3)
 
     # create a connection to elastics
-    es = Elasticsearch(hosts=conf['hosts'])
+    es = Elasticsearch(hosts=config['hosts'])
     if not es.ping():
         print '!-> cannot ping elastics, maybe occur ConnectionError'
         sys.exit(110)
@@ -282,7 +269,7 @@ if __name__ == '__main__':
     print 'syncing to elastics...'
     start_time = datetime.now()
     start_timestamp = time.time()
-    running(es, chunks, conf)
+    running(es, chunks, config)
 
     print '-> mark \"{}\"" as complete in task.info'.format(opts.file)
     if taskinfo.mark_complete(opts.file):
