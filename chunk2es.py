@@ -20,7 +20,7 @@ import os
 reload(sys)
 sys.setdefaultencoding('utf8')
 
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(filename='stderr.log', level=logging.ERROR)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 CACHE_PATH = os.path.join(BASE_DIR, 'cache')
