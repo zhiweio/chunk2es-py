@@ -6,7 +6,7 @@ from elasticsearch.helpers import bulk
 from datetime import datetime
 import elasticsearch
 import subprocess
-import itertools
+# import itertools
 import logging
 import shutil
 import codecs
@@ -97,7 +97,7 @@ def clean_chunk(chunk):
         pass
 
 
-def gen_data(chunk, config):
+def doc_generator(chunk, config):
     with codecs.open(chunk, 'r', encoding='utf8', errors='ignore') as f:
         delimiter = config['delimiter']
         headline = config['headline']
@@ -114,15 +114,14 @@ def gen_data(chunk, config):
             if len(source) != len(headline) or len(fields) != len(headline):
                 # NOTE: would raise mapper_parsing_exception error
                 logging.error(
-                    '>>> fucked, missed or exceeded some fields  >>> {}'.format(fields))
-                yield None
+                    '>>> fucked, missed or exceeded some fields  >>> {}'.format('\t'.join(fields)))
+                continue
             try:
                 es_id = source[config['_id']]
-                # logging.error('test _id >>> {}'.format(es_id))
                 if not es_id:
                     logging.error(
-                        '>>> fucked, empty _id   >>> {}'.format(fields))
-                    yield None
+                        '>>> fucked, empty _id   >>> {}'.format('\t'.join(fields)))
+                    continue
                 else:
                     yield {
                         "_index": config['_index'],
@@ -141,8 +140,8 @@ def gen_data(chunk, config):
 
 def sync(es, chunk, config):
     try:
-        actions = gen_data(chunk, config)
-        actions = itertools.ifilter(None, actions)
+        actions = doc_generator(chunk, config)
+        # actions = itertools.ifilter(None, actions)
         success, failed = bulk(es, actions, stats_only=True)
         return (success, failed)
     except elasticsearch.exceptions.ConnectionError:
