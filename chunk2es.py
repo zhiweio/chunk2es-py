@@ -71,7 +71,7 @@ def read_config(config_file):
 
 
 @quit
-def gen_chunks(huge_file, lines=50000):
+def chunk_generate(huge_file, lines=50000):
     split_command = ['split', '-l',
                      str(lines), '-a', '5', huge_file, 'chunk_']
     try:
@@ -97,7 +97,7 @@ def clean_chunk(chunk):
         pass
 
 
-def doc_generator(chunk, config):
+def doc_generate(chunk, config):
     with codecs.open(chunk, 'r', encoding='utf8', errors='ignore') as f:
         delimiter = config['delimiter']
         headline = config['headline']
@@ -140,7 +140,7 @@ def doc_generator(chunk, config):
 
 def sync(es, chunk, config):
     try:
-        actions = doc_generator(chunk, config)
+        actions = doc_generate(chunk, config)
         # actions = itertools.ifilter(None, actions)
         success, failed = bulk(es, actions, stats_only=True)
         return (success, failed)
@@ -260,7 +260,7 @@ if __name__ == '__main__':
     elif not taskinfo.exists() or opts.file not in taskinfo.get()['complete']:
         taskinfo.create()
         print 'generating file chunks...'
-        chunks = gen_chunks(opts.file)
+        chunks = chunk_generate(opts.file)
     else:
         print '!-> repeat operation, \"{}\" has synchronized to elastics'.format(opts.file)
         sys.exit(6)
