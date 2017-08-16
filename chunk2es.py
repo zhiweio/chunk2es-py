@@ -71,7 +71,7 @@ def read_config(config_file):
 
 
 @quit
-def chunk_generate(huge_file, lines=50000):
+def chunks_product(huge_file, lines=50000):
     split_command = ['split', '-l',
                      str(lines), '-a', '5', huge_file, 'chunk_']
     try:
@@ -89,7 +89,7 @@ def chunk_generate(huge_file, lines=50000):
     return glob.glob(CACHE_PATH + '/chunk_*')
 
 
-def clean_chunk(chunk):
+def delete_chunk(chunk):
     '''delete chunk completed from cache dir'''
     try:
         os.remove(chunk)
@@ -156,7 +156,7 @@ def running(es, chunks, config):
         success, failed = sync(es, chunk, config)
         if failed:
             logging.error('number of failed: {}'.format(failed))
-        clean_chunk(chunk)
+        delete_chunk(chunk)
 
 
 class Cache(object):
@@ -260,7 +260,7 @@ if __name__ == '__main__':
     elif not taskinfo.exists() or opts.file not in taskinfo.get()['complete']:
         taskinfo.create()
         print 'generating file chunks...'
-        chunks = chunk_generate(opts.file)
+        chunks = chunks_product(opts.file)
     else:
         print '!-> repeat operation, \"{}\" has synchronized to elastics'.format(opts.file)
         sys.exit(6)
