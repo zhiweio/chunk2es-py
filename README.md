@@ -41,6 +41,7 @@ Example:
 ```
 
 **参数说明**
+
 ```bash
 $ python chunk2es.py -h
 usage: chunk2es.py [-h] [-f FILE] [-c CONFIG]
@@ -60,9 +61,11 @@ $ python chunk2es.py -f test.txt -c sync.conf
 ```
 
 **日志**
+
 运行过程中生成 `stderr.log` 日志文件，数据中存在字段缺失和多余的行跳过并记录到 log 中
 
 **后台启动**
+
 通过 Linux 的 `bg` 命令来实现后台进程，`Ctrl+Z` 是休眠进程命令
 ```bash
 $ python chunk2es.py -f test.txt -c sync.conf 2> runError.log
@@ -70,6 +73,7 @@ Ctrl+Z
 $ bg
 ```
 通过 `supervisor` 管理
+
 请看一下 `supervisor` 文档，如何配置管理任务
 
 **效率**
