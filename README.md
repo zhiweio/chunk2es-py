@@ -1,6 +1,6 @@
 # chunk2es-py
 
-chunk2es-py是一个同步文本数据到elasticsearch的脚步工具， 它依赖于elasticsearch-py
+chunk2es-py 是一个同步文本数据到 elasticsearch 的脚本工具， 它依赖于 `elasticsearch-py`
 
 ## Install
 ```bash
